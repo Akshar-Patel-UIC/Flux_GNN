@@ -67,6 +67,7 @@ from flux.kvs import commit_async as kvs_commit_async
 from flux.kvs import get_key_direct as kvs_get
 from flux.resource import InfeasibleRequest
 from flux.resource.ResourcePool import ResourcePool
+from flux.resource.ResourcePoolImplementation import ResourcePoolImplementation
 
 
 @functools.total_ordering
@@ -277,6 +278,8 @@ class Scheduler(BrokerModule):
     hello_partial_ok = True
 
     #: Custom pool class.  When set to a
+    #: :class:`~flux.resource.ResourcePoolImplementation.ResourcePoolImplementation`
+    #: subclass (e.g. :class:`~flux.resource.Rv1Pool.Rv1Pool`) or a
     #: :class:`~flux.resource.ResourcePool.ResourcePool` subclass,
     #: :meth:`_make_pool` instantiates it directly instead of using the default
     #: :class:`~flux.resource.ResourcePool.ResourcePool` version dispatch.
@@ -1130,7 +1133,8 @@ class Scheduler(BrokerModule):
         1. :attr:`pool_class` set explicitly (e.g. via ``pool-class=`` argument
            or subclass definition) — instantiated directly.  Raises
            :exc:`ValueError` if the value is not a
-           :class:`~flux.resource.ResourcePool.ResourcePool` subclass.
+           :class:`~flux.resource.ResourcePoolImplementation.ResourcePoolImplementation`
+           subclass or a :class:`~flux.resource.ResourcePool.ResourcePool` subclass.
         2. ``R.scheduling.writer`` URI — parsed by
            :meth:`_pool_class_from_writer` to derive the pool class.
         3. Default :class:`~flux.resource.ResourcePool.ResourcePool` version
@@ -1138,20 +1142,40 @@ class Scheduler(BrokerModule):
 
         In all three cases :attr:`pool_kwargs` are forwarded as keyword
         arguments to the chosen constructor.
+
+        Implementation instances (e.g. :class:`~flux.resource.Rv1Pool.Rv1Pool`)
+        are wrapped in :class:`~flux.resource.ResourcePool.ResourcePool` so
+        :attr:`_resources` always exposes ``.impl`` as the rest of the scheduler
+        expects.
         """
+        pool = None
         if self.pool_class is not None:
             if not (
                 isinstance(self.pool_class, type)
-                and issubclass(self.pool_class, ResourcePool)
+                and (
+                    issubclass(self.pool_class, ResourcePoolImplementation)
+                    or issubclass(self.pool_class, ResourcePool)
+                )
             ):
                 raise ValueError(
-                    f"pool_class must be a ResourcePool subclass, "
-                    f"got {self.pool_class!r}"
+                    f"pool_class must be a ResourcePoolImplementation or "
+                    f"ResourcePool subclass, got {self.pool_class!r}"
                 )
-            return self.pool_class(R, log=self.log, **self.pool_kwargs)
-        pool_class = self._pool_class_from_writer(R)
-        if pool_class is not None:
-            return pool_class(R, log=self.log, **self.pool_kwargs)
+            pool = self.pool_class(R, log=self.log, **self.pool_kwargs)
+        else:
+            writer_cls = self._pool_class_from_writer(R)
+            if writer_cls is not None:
+                pool = writer_cls(R, log=self.log, **self.pool_kwargs)
+
+        if pool is not None:
+            if isinstance(pool, ResourcePool):
+                return pool
+            if isinstance(pool, ResourcePoolImplementation):
+                return ResourcePool(pool)
+            raise ValueError(
+                "pool constructor returned "
+                f"{type(pool)!r}; expected ResourcePool or ResourcePoolImplementation"
+            )
         return ResourcePool(R, log=self.log, **self.pool_kwargs)
 
     def _acquire_resources(self):

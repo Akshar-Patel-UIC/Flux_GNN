@@ -65,6 +65,28 @@ exits, Flux exits.
 For more information on starting Flux in various environments and using it,
 please refer to our [documentation](https://flux-framework.readthedocs.io/projects/flux-core/en/latest/guide/start.html).
 
+##### Experimental GNN scheduler (`sched-gnn`)
+
+This fork includes an optional Python scheduler module that reorders Rv1
+allocation candidates using a small PyTorch model (`flux.gnn`). Load it
+instead of the default `sched-simple` after starting an instance, for example:
+
+```
+flux module remove sched-simple
+flux module load sched-gnn
+```
+
+Optional arguments: `model-path=/path/to.pt`, `device=cpu`, `hidden-dim=64`,
+plus the usual `queue-depth` and `log-level`. If PyTorch is not installed or
+inference fails, ordering falls back to the standard worst-fit policy.
+
+To build and run in Docker with PyTorch included, see
+[docker/Dockerfile.gnn](docker/Dockerfile.gnn) and optional
+[requirements-gnn.txt](requirements-gnn.txt) for a local `pip install`.
+The Dockerfile sets `FLUX_VERSION` (default `0.65.0`) because `autogen.sh`
+needs a `major.minor.point` version when git tags are not in the build context;
+override with `docker build --build-arg FLUX_VERSION=…` if you prefer.
+
 #### Release
 
 SPDX-License-Identifier: LGPL-3.0

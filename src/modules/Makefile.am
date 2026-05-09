@@ -39,6 +39,7 @@ dist_fluxmod_SCRIPTS = \
 	sched-fifo.py \
 	sched-backfill.py \
 	sched-simple.py \
+	sched-gnn.py \
 	sdexec-mapper.py
 
 fluxmod_LTLIBRARIES = \

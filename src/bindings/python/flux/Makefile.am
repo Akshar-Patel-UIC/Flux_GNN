@@ -70,10 +70,14 @@ nobase_fluxpy_PYTHON = \
 	resource/ResourcePool.py \
 	resource/ResourcePoolImplementation.py \
 	resource/Rv1Pool.py \
+	resource/GNNRv1Pool.py \
 	resource/ResourceCount.py \
 	resource/list.py \
 	resource/status.py \
 	resource/journal.py \
+	gnn/__init__.py \
+	gnn/graphs.py \
+	gnn/model.py \
 	hostlist.py \
 	idset.py \
 	progress.py \

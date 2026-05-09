@@ -17,7 +17,9 @@ EXTRA_DIST = \
 	scripts/install-deps-rpm.sh \
 	scripts/install-deps-macos.sh \
 	scripts/configure-macos.sh \
-	scripts/check-macos.sh
+	scripts/check-macos.sh \
+	requirements-gnn.txt \
+	docker/Dockerfile.gnn
 
 ACLOCAL_AMFLAGS = -I config
 

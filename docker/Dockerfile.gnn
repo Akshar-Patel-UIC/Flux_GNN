@@ -1,0 +1,68 @@
+# Experimental image: flux-core from source + CPU PyTorch for sched-gnn.
+#
+# Build (from repository root):
+#   docker build -f docker/Dockerfile.gnn -t flux-gnn:dev .
+#
+# If configure fails on "VERSION ... is invalid", the build context often has
+# no git tags (or no .git). Override the semver baked in at autoreconf time:
+#   docker build --build-arg FLUX_VERSION=0.65.0 -f docker/Dockerfile.gnn -t flux-gnn:dev .
+#
+# Run an interactive shell (needs -it — plain `docker run` exits immediately
+# if CMD were bash without a TTY). Either override CMD:
+#   docker run --rm -it flux-gnn:dev bash
+# Or start detached and exec in (default CMD keeps the container alive):
+#   docker run -d --name fluxgnn flux-gnn:dev
+#   docker exec -it fluxgnn bash
+# Then inside the shell:
+#   flux start --test-size=4
+#   flux module load sched-gnn
+#   flux submit hostname
+#
+# Optional trained weights:
+#   flux module load sched-gnn model-path=/path/to/checkpoint.pt
+
+FROM ubuntu:jammy
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        autoconf automake libtool libtool-bin pkg-config make \
+        build-essential \
+        libzmq3-dev \
+        uuid-dev libjansson-dev liblz4-dev libarchive-dev \
+        libhwloc-dev libsqlite3-dev libmpich-dev \
+        libsystemd-dev libsodium-dev libmunge-dev \
+        libncurses-dev libedit-dev libpam0g-dev libevent-dev \
+        lua5.2 liblua5.2-dev luarocks \
+        python3-dev python3-pip python3-setuptools python3-wheel \
+        wget git ca-certificates \
+        munge \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN luarocks install luaposix
+
+RUN python3 -m pip install --no-cache-dir --upgrade pip \
+ && python3 -m pip install --no-cache-dir \
+        cffi ply pyyaml "jsonschema>=2.6,<4.0" numpy \
+ && python3 -m pip install --no-cache-dir \
+        torch --index-url https://download.pytorch.org/whl/cpu
+
+WORKDIR /src
+COPY . /src
+
+# configure.ac derives PACKAGE_VERSION during autogen (git describe); Docker COPY
+# rarely includes .git or upstream tags, so set a sane default SemVer.
+ARG FLUX_VERSION=0.65.0
+ENV FLUX_VERSION=${FLUX_VERSION}
+
+RUN ./autogen.sh \
+ && ./configure --prefix=/usr/local \
+ && make -j"$(nproc)" \
+ && make install \
+ && ldconfig
+
+ENV LD_LIBRARY_PATH=/usr/local/lib
+
+# Keeps `docker run -d ...` alive without requiring sleep/tail workarounds.
+# For a shell, use: docker run --rm -it flux-gnn:dev bash
+CMD ["sleep", "infinity"]

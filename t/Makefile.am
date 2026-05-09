@@ -343,6 +343,7 @@ TESTSCRIPTS = \
 	python/t0043-sdexec-map.py \
 	python/t0043-scheduler-pool.py \
 	python/t0045-job-shape-parser.py \
+	python/t0046-gnn-rv1pool.py \
 	python/t0100-modprobe.py \
 	python/t1000-service-add-remove.py
 

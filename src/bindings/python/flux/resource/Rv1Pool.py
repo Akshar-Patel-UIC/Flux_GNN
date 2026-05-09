@@ -310,7 +310,7 @@ class Rv1Pool(Rv1Set, ResourcePoolImplementation):
 
     def _copy_from_ranks(self, rank_set: set) -> "Rv1Pool":
         """Return a new Rv1Pool containing only the given ranks (alloc cleared)."""
-        new = object.__new__(Rv1Pool)
+        new = object.__new__(type(self))
         new._expiration = self._expiration
         new._starttime = self._starttime
         new._has_nodelist = getattr(self, "_has_nodelist", False)
@@ -531,6 +531,30 @@ class Rv1Pool(Rv1Set, ResourcePoolImplementation):
             request.gpu_per_slot,
         )
 
+    def _rank_candidates(self, candidates, jobid, request):
+        """Return *candidates* in greedy allocation order (default: worst-fit).
+
+        Each entry is ``(rank, info, free_cores, free_gpus)`` as built in
+        :meth:`alloc`.  Subclasses may override to apply learned or
+        site-specific ordering; the default sorts by descending free cores,
+        then free GPUs (worst-fit).
+
+        Args:
+            candidates: Feasible rank tuples before ordering.
+            jobid: Job requesting allocation.
+            request: :class:`ResourceRequest` for *jobid*.
+
+        Returns:
+            The same tuples reordered for the greedy selection loops in
+            :meth:`alloc`.
+        """
+        ranked = list(candidates)
+        ranked.sort(
+            key=lambda x: (len(x[2]), len(x[3])),
+            reverse=True,
+        )
+        return ranked
+
     def alloc(self, jobid: int, request) -> "Rv1Pool":
         """Allocate resources for *jobid* matching *request*.
 
@@ -588,11 +612,7 @@ class Rv1Pool(Rv1Set, ResourcePoolImplementation):
                 if self._matches_constraint(r, i, constraint)
             ]
 
-        # Worst-fit: descending free cores (break ties by free GPUs)
-        candidates.sort(
-            key=lambda x: (len(x[2]), len(x[3])),
-            reverse=True,
-        )
+        candidates = self._rank_candidates(candidates, jobid, request)
 
         # Greedy selection — each entry is (rank, info, alloc_cores, alloc_gpus)
         selected: List[Tuple[int, dict, frozenset, frozenset]] = []
@@ -706,7 +726,7 @@ class Rv1Pool(Rv1Set, ResourcePoolImplementation):
 
     def copy(self) -> "Rv1Pool":
         """Return a full independent copy preserving allocation state."""
-        new = object.__new__(Rv1Pool)
+        new = object.__new__(type(self))
         new.generation = self.generation
         new._expiration = self._expiration
         new._starttime = self._starttime

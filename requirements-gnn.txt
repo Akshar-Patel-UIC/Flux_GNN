@@ -1,0 +1,5 @@
+# Optional: PyTorch (CPU). For sched-gnn / flux.gnn. Install with:
+#   pip install -r requirements-gnn.txt
+# or the platform wheel index from https://pytorch.org/get-started/locally/
+numpy>=1.22
+torch>=2.0,<3
